@@ -19,5 +19,5 @@ jobs:
           test -f pentacle-crown-simulator.html
           test ! -e index.html
           git mv pentacle-crown-simulator.html index.html
-          git commit -m "Add temple background to simulator"
+          git commit -m "Public name: Cajun (simulator)"
           git push origin HEAD:main
