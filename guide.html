@@ -472,3 +472,14 @@ if (new URLSearchParams(location.search).has('embed')) {
   document.head.appendChild(s);
 }
 </script>
+<script>
+(function(){
+  var q = new URLSearchParams(location.search);
+  if (!q.has('embed')) return;
+  var part = q.get('part');
+  var css = '';
+  if (part === '1') css = '#decks, footer.site { display: none !important; }';
+  if (part === '2') css = '#how-to-play, #rules { display: none !important; }';
+  if (css) { var s = document.createElement('style'); s.textContent = css; document.head.appendChild(s); }
+})();
+</script>
