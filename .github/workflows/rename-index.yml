@@ -1,0 +1,23 @@
+name: Rename simulator file to index.html
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rename:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Move pentacle-crown-simulator.html to index.html
+        run: |
+          set -e
+          git config user.name "Cajun-lab"
+          git config user.email "Cajun-lab@users.noreply.github.com"
+          test -f pentacle-crown-simulator.html
+          test ! -e index.html
+          git mv pentacle-crown-simulator.html index.html
+          git commit -m "Add temple background to simulator"
+          git push origin HEAD:main
