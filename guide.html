@@ -465,3 +465,10 @@ footer.site{text-align:center;color:var(--muted);padding:26px 12px 40px;border-t
 <footer class="site">THE PENTACLE CROWN · by Synsational Sounds · Rules &amp; Deities v0.8 · Starter Deck Lists v0.4</footer>
 </body>
 </html>
+<script>
+if (new URLSearchParams(location.search).has('embed')) {
+  var s = document.createElement('style');
+  s.textContent = 'header.site, nav.anchors { display: none !important; } body { margin: 0 !important; padding: 0 !important; }';
+  document.head.appendChild(s);
+}
+</script>
