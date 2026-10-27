@@ -1522,7 +1522,7 @@ button { font-family: inherit; cursor: pointer; }
 <script>
 /* =====================================================================
    THE PENTACLE CROWN — human-playable game engine (pure logic, no DOM)
-   Rules: "Pentacle Crown Rules and Deities v0.9.md" — printed text is the
+   Rules: "Pentacle Crown Rules and Deities v0.10.md" — printed text is the
    source of truth; effect semantics follow playtest/simulator_tuning_v1.py
    (the balance-verified Python engine) wherever it models an effect, and
    playtest/module_hip2/simulator_hip_v2.py for the Heroes / Instants /
@@ -1543,6 +1543,7 @@ button { font-family: inherit; cursor: pointer; }
   var CARDS = DB.CARDS, DEITIES = DB.DEITIES, DECK_LISTS = DB.DECK_LISTS;
 
   var TREASURY_CAP = 13;        // Rules v0.9 (raised from 12 with the heroes module)
+  var FOLLOWER_CAP = 5;         // Rules v0.10 — The Full Crossing: at most 5 Followers in play; the Hero stands in its own slot
   var TURN_CAP = 240;           // player-turns; then higher Divinity wins (mirrors Python engine's cap spirit)
   var HARVEST_EFFECTS = { harvest_first: 1, harvest_buff: 1, harvest_double: 1 };
   // How much a Rite is worth answering with a Nullify (module engine's
@@ -1995,6 +1996,13 @@ button { font-family: inherit; cursor: pointer; }
     }
     return null;
   };
+  /* Rules v0.10 — The Full Crossing: a player may have at most
+     FOLLOWER_CAP Followers in play. The Hero never counts toward the
+     cap; it is governed by the one-Hero rule instead. */
+  Game.prototype.followerCount = function (p) {
+    return p.board.filter(function (f) { return !f.def.hero; }).length;
+  };
+  Game.prototype.crossingFull = function (p) { return this.followerCount(p) >= FOLLOWER_CAP; };
   Game.prototype.askTargetFollower = function (player, followers, prompt, cancellable) {
     var options = this.followerOptions(followers);
     if (cancellable) options.push({ id: 'cancel', label: 'Cancel', kind: 'cancel' });
@@ -2107,6 +2115,10 @@ button { font-family: inherit; cursor: pointer; }
     eligible.forEach(function (u) {
       chain = chain.then(function () {
         if (p.underworld.indexOf(u) === -1) return null;
+        // The Full Crossing (Rules v0.10): no room — the return simply
+        // does not happen. No fare is charged, no free return is spent;
+        // it may return at a later Descent when there is room.
+        if (self.crossingFull(p)) { self.log(u.name + ' cannot return — the Crossing is full (' + FOLLOWER_CAP + ' Followers already stand for ' + self.pname(p) + '). It stays in the Underworld.'); return null; }
         var fare = u.pending;
         var freeAvail = p.deityKey === 'I' && !p.freeReturnUsed && CARDS[u.name].deck === p.deityKey;
         var options = [];
@@ -2155,7 +2167,10 @@ button { font-family: inherit; cursor: pointer; }
         var c = self.effCost(p, hc);
         // Unique (Rules v0.9): you may control only one Hero at a time.
         var heroBlocked = d.hero && p.board.some(function (f) { return f.def.hero; });
-        if (c <= p.obols && !heroBlocked) acts.push({ id: 'play' + hc.uid, label: 'Summon ' + hc.name + ' (' + c + ' Obols)', kind: 'play', uid: hc.uid });
+        // The Full Crossing (Rules v0.10): a non-Hero Follower cannot be
+        // summoned while 5 Followers already stand; a Hero still can.
+        var capBlocked = !d.hero && self.crossingFull(p);
+        if (c <= p.obols && !heroBlocked && !capBlocked) acts.push({ id: 'play' + hc.uid, label: 'Summon ' + hc.name + ' (' + c + ' Obols)', kind: 'play', uid: hc.uid });
       } else if (d.type === 'L') {
         if (d.cost <= p.obols) acts.push({ id: 'play' + hc.uid, label: 'Play relic ' + hc.name + ' (' + d.cost + ' Obols)', kind: 'play', uid: hc.uid });
       } else if (d.type === 'R') {
@@ -2183,7 +2198,8 @@ button { font-family: inherit; cursor: pointer; }
       case 'gravedug': case 'bookcloses': case 'struck': case 'kiss': case 'edge':
       case 'fallfurther': case 'grisgris': case 'path': return anyF;
       case 'bloodrite': case 'deny': case 'offering': return ownF;
-      case 'call': case 'speak': case 'silent': return p.underworld.some(function (u) { return CARDS[u.name].type === 'F'; });
+      case 'call': case 'speak': return !this.crossingFull(p) && p.underworld.some(function (u) { return CARDS[u.name].type === 'F'; });
+      case 'silent': return p.underworld.some(function (u) { return CARDS[u.name].type === 'F'; });
       default: return true;
     }
   };
@@ -2500,6 +2516,7 @@ button { font-family: inherit; cursor: pointer; }
       case 'call': {
         return pickUW('Call from the Deep: return target Follower from your Underworld to play. If it has Descend, it enters one Level deeper.').then(function (u) {
           if (!u) return;
+          if (self.crossingFull(p)) { self.log('The Crossing is full — ' + u.name + ' cannot enter play and stays in the Underworld (Call from the Deep).'); return; }
           p.underworld.splice(p.underworld.indexOf(u), 1);
           var depth = Math.max(CARDS[u.name].descend, u.grantedDepth);
           var lvl = depth > 0 ? Math.min(u.uwLevel + 1, depth) : 0;
@@ -2714,6 +2731,7 @@ button { font-family: inherit; cursor: pointer; }
       case 'speak': {
         return pickUW('Speak with the Dead: return a Follower from your Underworld to play (it dies at Dusk unless the Pact is paid).').then(function (u) {
           if (!u) return null;
+          if (self.crossingFull(p)) { self.log('The Crossing is full — ' + u.name + ' cannot enter play and stays in the Underworld (Speak with the Dead).'); return null; }
           p.underworld.splice(p.underworld.indexOf(u), 1);
           var nf = new Follower(u.name, p, 0, CARDS[u.name].veiled, u.grantedDepth);
           nf.enteredTurn = self.turnId;
